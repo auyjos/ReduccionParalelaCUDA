@@ -1,5 +1,6 @@
 # Ignorar la carpeta de build
 /build/
+/tests/
 
 # Ignorar archivos de compilación de CUDA
 *.o

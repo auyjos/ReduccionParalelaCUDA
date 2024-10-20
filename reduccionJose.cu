@@ -2,9 +2,10 @@
 #include <stdlib.h>
 #include <time.h>
 #include <cuda.h>
+#include <math.h>
 
-#define N 1024         // Número de elementos en el array
-#define BLOCK_SIZE 512 // Tamaño del bloque
+#define N 100000        // Número de elementos en el array
+#define BLOCK_SIZE 1024 // Tamaño del bloque
 
 __global__ void reductionKernel(float *d_input, float *d_output, int n)
 {
@@ -13,14 +14,7 @@ __global__ void reductionKernel(float *d_input, float *d_output, int n)
     int index = blockIdx.x * blockDim.x + tid;
 
     // Cargar datos en el array compartido
-    if (index < n)
-    {
-        sharedData[tid] = d_input[index];
-    }
-    else
-    {
-        sharedData[tid] = 0.0f; // Rellenar con ceros si el índice excede
-    }
+    sharedData[tid] = (index < n) ? d_input[index] : 0.0f;
     __syncthreads(); // Sincronizar hilos en el bloque
 
     // Reducción en el bloque
@@ -30,7 +24,7 @@ __global__ void reductionKernel(float *d_input, float *d_output, int n)
         {
             sharedData[tid] += sharedData[tid + stride];
         }
-        __syncthreads(); // Sincronizar hilos en el bloque
+        __syncthreads(); // Sincronizar hilos en el bloque solo si hay más de un hilo
     }
 
     // Escribir el resultado del bloque en la salida
@@ -62,6 +56,14 @@ int main()
     // Copiar datos a la GPU
     cudaMemcpy(d_input, h_input, sizeof(float) * N, cudaMemcpyHostToDevice);
 
+    // Crear eventos para temporización
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+
+    // Iniciar temporización
+    cudaEventRecord(start, 0);
+
     // Configurar el tamaño de los bloques y la grilla
     dim3 blockSize(BLOCK_SIZE);
     dim3 gridSize(numBlocks);
@@ -69,6 +71,14 @@ int main()
     // Lanzar el kernel
     reductionKernel<<<gridSize, blockSize>>>(d_input, d_output, N);
     cudaDeviceSynchronize(); // Esperar a que el kernel termine de ejecutarse
+
+    // Detener temporización
+    cudaEventRecord(stop, 0);
+    cudaEventSynchronize(stop);
+
+    // Calcular el tiempo transcurrido
+    float milliseconds = 0;
+    cudaEventElapsedTime(&milliseconds, start, stop);
 
     // Copiar el resultado de vuelta a la CPU
     cudaMemcpy(h_output, d_output, sizeof(float) * numBlocks, cudaMemcpyDeviceToHost);
@@ -90,15 +100,16 @@ int main()
     // Mostrar los resultados
     printf("Suma total (CUDA): %f\n", totalSum);
     printf("Suma total (secuencial): %f\n", sequentialSum);
+    printf("Tiempo de ejecucion (CUDA): %f ms\n", milliseconds);
 
     // Validar el resultado
     if (fabs(totalSum - sequentialSum) < 1e-5) // Comparar con tolerancia
     {
-        printf("La implementación es válida.\n");
+        printf("La implementacion es valida.\n");
     }
     else
     {
-        printf("La implementación es inválida.\n");
+        printf("La implementacion es invalida.\n");
     }
 
     // Liberar memoria
