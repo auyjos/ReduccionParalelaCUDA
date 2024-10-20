@@ -1,0 +1,23 @@
+# Ignorar la carpeta de build
+/build/
+
+# Ignorar archivos de compilación de CUDA
+*.o
+*.exe
+
+# Ignorar archivos temporales de sistema
+*.swp
+*.tmp
+
+# Ignorar archivos de configuración de IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Ignorar archivos de configuración de sistema
+Thumbs.db
+.DS_Store
+
+# Ignorar archivos de log
+*.log
