@@ -65,6 +65,10 @@ int main()
         return -1;
     }
 
+    // Mostrar el tamaño del array y el número de bloques
+    printf("Tamano del array N: %d\n", N);
+    printf("Tamano del bloque BLOCK_SIZE: %d\n", BLOCK_SIZE);
+
     // Inicializar datos
     float *h_input = (float *)malloc(sizeof(float) * N);
     srand(time(NULL)); // Semilla para números aleatorios
