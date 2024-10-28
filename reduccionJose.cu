@@ -4,13 +4,14 @@
 #include <cuda.h>
 #include <math.h>
 
-#define N 100000        // Número de elementos en el array
-#define BLOCK_SIZE 1024 // Tamaño del bloque
+// Variables para N y BLOCK_SIZE que se leerán del archivo
+int N;          // Número de elementos en el array
+int BLOCK_SIZE; // Tamaño del bloque
 
 __global__ void reductionKernel(float *d_input, float *d_output, int n)
 {
-    __shared__ float sharedData[BLOCK_SIZE]; // Array compartido en la GPU
-    int tid = threadIdx.x;                   // ID del hilo
+    extern __shared__ float sharedData[]; // Array compartido en la GPU
+    int tid = threadIdx.x;                // ID del hilo
     int index = blockIdx.x * blockDim.x + tid;
 
     // Cargar datos en el array compartido
@@ -18,7 +19,7 @@ __global__ void reductionKernel(float *d_input, float *d_output, int n)
     __syncthreads(); // Sincronizar hilos en el bloque
 
     // Reducción en el bloque
-    for (int stride = BLOCK_SIZE / 2; stride > 0; stride /= 2)
+    for (int stride = blockDim.x / 2; stride > 0; stride /= 2)
     {
         if (tid < stride)
         {
@@ -34,8 +35,36 @@ __global__ void reductionKernel(float *d_input, float *d_output, int n)
     }
 }
 
+// Función para leer los parámetros desde el archivo de texto
+int leerParametros(const char *nombreArchivo)
+{
+    FILE *archivo = fopen(nombreArchivo, "r");
+    if (archivo == NULL)
+    {
+        printf("No se pudo abrir el archivo %s\n", nombreArchivo);
+        return -1;
+    }
+
+    // Leer los valores de N y BLOCK_SIZE desde el archivo
+    if (fscanf(archivo, "%d", &N) != 1 || fscanf(archivo, "%d", &BLOCK_SIZE) != 1)
+    {
+        printf("Error al leer los parámetros del archivo.\n");
+        fclose(archivo);
+        return -1;
+    }
+
+    fclose(archivo);
+    return 0;
+}
+
 int main()
 {
+    // Leer los parámetros desde el archivo de texto
+    if (leerParametros("parameters.txt") != 0)
+    {
+        return -1;
+    }
+
     // Inicializar datos
     float *h_input = (float *)malloc(sizeof(float) * N);
     srand(time(NULL)); // Semilla para números aleatorios
@@ -68,8 +97,8 @@ int main()
     dim3 blockSize(BLOCK_SIZE);
     dim3 gridSize(numBlocks);
 
-    // Lanzar el kernel
-    reductionKernel<<<gridSize, blockSize>>>(d_input, d_output, N);
+    // Lanzar el kernel con memoria compartida dinámica
+    reductionKernel<<<gridSize, blockSize, BLOCK_SIZE * sizeof(float)>>>(d_input, d_output, N);
     cudaDeviceSynchronize(); // Esperar a que el kernel termine de ejecutarse
 
     // Detener temporización
